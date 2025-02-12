@@ -1,0 +1,43 @@
+server:
+  port: 8383
+  servlet:
+    context-path:
+spring:
+  flyway:
+    enabled: true
+    url: jdbc:as400://mat.db.gtk/UZIMEI;sockettimeout=30000;thread used=false;transaction isolation=read commited;translatebinary=true;date format=iso;prompt=false
+    user: Dilmurod
+    password: 606191
+    schemas: public
+  application:
+    name: insurance
+  main:
+    allow-circular-references: true
+  mvc:
+    view:
+      prefix: /
+      suffix: .html
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: none
+  datasource:
+    data-base-first: #Data Base Main data
+      url: jdbc:as400://mat.db.gtk/UZIMEI;sockettimeout=30000;thread used=false;transaction isolation=read commited;translatebinary=true;date format=iso;prompt=false
+      username: Dilmurod
+      password: 606191
+      driver-class-name: com.ibm.as400.access.AS400JDBCDriver
+      hikari:
+        connection-test-query: SELECT 1
+    data-base-second: #Data Base Main data
+      url: jdbc:as400://db210.db.gtk/INSURANCE;sockettimeout=30000;thread used=false;transaction isolation=read commited;translatebinary=true;date format=iso;prompt=false
+      username: Dilmurod
+      password: 606191
+      driver-class-name: com.ibm.as400.access.AS400JDBCDriver
+      hikari:
+        connection-test-query: SELECT 1
