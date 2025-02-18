@@ -142,7 +142,6 @@ public class Db2 {
                 ip.equals("192.168.224.127") || ip.equals("localhost") || ip.equals("192.168.224.13");
     }
 
-    @Primary
     @Bean(name = "entityManagerFactoryDataBaseSecond")
     public LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseSecond(
             final HikariDataSource dataBaseSecond) {
@@ -155,7 +154,6 @@ public class Db2 {
         }};
     }
 
-    @Primary
     @Bean
     public PlatformTransactionManager transactionManagerDataBaseSecond(
             final @Qualifier("entityManagerFactoryDataBaseSecond") LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseSecond) {

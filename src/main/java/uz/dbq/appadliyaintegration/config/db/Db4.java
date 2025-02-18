@@ -30,32 +30,32 @@ import java.util.Objects;
 import java.util.Properties;
 
 @Configuration
-@ConfigurationProperties("spring.datasource.data-base-first")
+@ConfigurationProperties("spring.datasource.data-base-fourth")
 @EnableTransactionManagement
 @EnableJpaRepositories(
-        entityManagerFactoryRef = "entityManagerFactoryDataBaseFirst",
-        transactionManagerRef = "transactionManagerDataBaseFirst",
-        basePackages = {"uz.dbq.appadliyaintegration.repository.repo1"}
+        entityManagerFactoryRef = "entityManagerFactoryDataBaseFourth",
+        transactionManagerRef = "transactionManagerDataBaseFourth",
+        basePackages = {"uz.dbq.appadliyaintegration.repository.repo4"}
 )
-public class Db1 {
+public class Db4 {
 
-    private static final String POOL_NAME = "dataBaseFirst";
+    private static final String POOL_NAME = "dataBaseFourth";
 
     private static HikariDataSource hikariDataSource;
 
-    @Value("${spring.datasource.data-base-first.url}")
+    @Value("${spring.datasource.data-base-fourth.url}")
     private String jdbcUrl;
 
-    @Value("${spring.datasource.data-base-first.driver-class-name}")
+    @Value("${spring.datasource.data-base-fourth.driver-class-name}")
     private String driverClassName;
 
-    @Value("${spring.datasource.data-base-first.username}")
+    @Value("${spring.datasource.data-base-fourth.username}")
     private String username;
 
-    @Value("${spring.datasource.data-base-first.password}")
+    @Value("${spring.datasource.data-base-fourth.password}")
     private String password;
 
-    protected final String PERSISTENCE_UNIT_NAME = "dataBaseFirst";
+    protected final String PERSISTENCE_UNIT_NAME = "dataBaseFourth";
     protected final Properties JPA_DATABASE_FIRST = new Properties() {{
         put("database-platform", "org.hibernate.dialect.DB2400Dialect");
         put("hibernate.hbm2ddl.auto", "none");
@@ -75,10 +75,10 @@ public class Db1 {
     }
 
     @Bean
-    @Qualifier("dataBaseFirst")
-    public HikariDataSource dataBaseFirst() throws UnknownHostException, SocketException {
+    @Qualifier("dataBaseFourth")
+    public HikariDataSource dataBaseFourth() throws UnknownHostException, SocketException {
         if (hikariDataSource == null) {
-            synchronized (Db1.class) {
+            synchronized (Db4.class) {
                 if (hikariDataSource == null) {
                     HikariConfig hikariConfig = createHikariConfig();
                     hikariDataSource = new HikariDataSource(hikariConfig);
@@ -142,23 +142,22 @@ public class Db1 {
                 ip.equals("192.168.224.127") || ip.equals("localhost") || ip.equals("192.168.224.13");
     }
 
-    @Primary
-    @Bean(name = "entityManagerFactoryDataBaseFirst")
-    public LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseFirst(
-            final HikariDataSource dataBaseFirst) {
+    @Bean(name = "entityManagerFactoryDataBaseFourth")
+    public LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseFourth(
+            final HikariDataSource dataBaseFourth) {
         return new LocalContainerEntityManagerFactoryBean() {{
-            setDataSource(dataBaseFirst);
+            setDataSource(dataBaseFourth);
             setPersistenceProviderClass(HibernatePersistenceProvider.class);
             setPersistenceUnitName(PERSISTENCE_UNIT_NAME);
-            setPackagesToScan("uz.dbq.appadliyaintegration.entity.entity1");
+            setPackagesToScan("uz.dbq.appadliyaintegration.entity.entity4");
             setJpaProperties(JPA_DATABASE_FIRST);
         }};
     }
 
     @Bean
-    public PlatformTransactionManager transactionManagerDataBaseFirst(
-            final @Qualifier("entityManagerFactoryDataBaseFirst") LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseFirst) {
-        return new JpaTransactionManager(Objects.requireNonNull(entityManagerFactoryDataBaseFirst.getObject()));
+    public PlatformTransactionManager transactionManagerDataBaseFourth(
+            final @Qualifier("entityManagerFactoryDataBaseFourth") LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseFourth) {
+        return new JpaTransactionManager(Objects.requireNonNull(entityManagerFactoryDataBaseFourth.getObject()));
     }
 }
 

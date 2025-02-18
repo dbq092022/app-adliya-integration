@@ -41,3 +41,17 @@ spring:
       driver-class-name: com.ibm.as400.access.AS400JDBCDriver
       hikari:
         connection-test-query: SELECT 1
+    data-base-third: #Data Base Main data
+      url: jdbc:as400://dc1paym01.db.gtk/TP;sockettimeout=30000;thread used=false;transaction isolation=read commited;translatebinary=true;date format=iso;prompt=false
+      username: Dilmurod
+      password: 606191
+      driver-class-name: com.ibm.as400.access.AS400JDBCDriver
+      hikari:
+        connection-test-query: SELECT 1
+    data-base-fourth: #Data Base Main data
+      url: jdbc:as400://ebr01.db.gtk/ASOD;sockettimeout=30000;thread used=false;transaction isolation=read commited;translatebinary=true;date format=iso;prompt=false
+      username: Dilmurod
+      password: 606191
+      driver-class-name: com.ibm.as400.access.AS400JDBCDriver
+      hikari:
+        connection-test-query: SELECT 1
