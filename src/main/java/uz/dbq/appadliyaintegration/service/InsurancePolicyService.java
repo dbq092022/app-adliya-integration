@@ -38,7 +38,7 @@ public class InsurancePolicyService {
 
             if (type.equals("1")) {
                 if (policType == null || !policType.matches("[12]")) {
-                    return new ApiResponse("Invalid type: Must be 1 or 2", false, null);
+                    return new ApiResponse("Invalid policType: Must be 1 or 2", false, null);
                 } // broker - 1, kurer - 2
                 if (policType.equals("1")) {
                     policType = "5";
@@ -64,9 +64,9 @@ public class InsurancePolicyService {
                 InsurancePolicyResponse insurancePolicyResponse = new InsurancePolicyResponse();
                 for (Object[] result : results) {
                     insurancePolicyResponse.setPolicNum(result[0] != null ? result[0].toString() : null);
-                    insurancePolicyResponse.setPolicData(result[1] != null ? result[1].toString() : null);
+                    insurancePolicyResponse.setPolicData(result[2] != null ? result[2].toString() : null);
                     insurancePolicyResponse.setPolicSum(result[3] != null ? result[3].toString() : null);
-                    insurancePolicyResponse.setPolicDeadline(result[2] != null ? result[2].toString() : null);
+                    insurancePolicyResponse.setPolicDeadline(result[1] != null ? result[1].toString() : null);
                     insurancePolicyResponse.setPolicType(result[4] != null ? result[4].toString() : null);
                     insurancePolicyResponse.setPolicOrgName(result[5] != null ? result[5].toString() : null);
                 }
