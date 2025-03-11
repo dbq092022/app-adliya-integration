@@ -5,24 +5,29 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import uz.dbq.appadliyaintegration.entity.entity1.InsurancePolicy;
 import uz.dbq.appadliyaintegration.payload.ApiResponse;
 import uz.dbq.appadliyaintegration.payload.request.AppealCourierOrgRequest;
 import uz.dbq.appadliyaintegration.payload.request.AppealCustomsBrokersRequest;
 import uz.dbq.appadliyaintegration.payload.request.RegistryCourierOrgRequest;
 import uz.dbq.appadliyaintegration.payload.request.RegistryCustomsBrokersRequest;
 import uz.dbq.appadliyaintegration.payload.response.InsurancePolicyResponse;
+import uz.dbq.appadliyaintegration.repository.repo1.InsurancePolicyRepository;
 
+import java.sql.Timestamp;
 import java.util.List;
 
 @Service
 public class InsurancePolicyService {
     private final PaymentCheckImpl paymentCheckImpl;
+    private final InsurancePolicyRepository insurancePolicyRepository;
     @Qualifier("entityManagerFactoryDataBaseSecond")
     @PersistenceContext(unitName = "dataBaseSecond")
     private EntityManager entityManager;
 
-    public InsurancePolicyService(PaymentCheckImpl paymentCheckImpl) {
+    public InsurancePolicyService(PaymentCheckImpl paymentCheckImpl, InsurancePolicyRepository insurancePolicyRepository) {
         this.paymentCheckImpl = paymentCheckImpl;
+        this.insurancePolicyRepository = insurancePolicyRepository;
     }
 
     public ApiResponse getInsurancePolicy(String tinPin, String type, String policType) {
@@ -70,12 +75,15 @@ public class InsurancePolicyService {
                     insurancePolicyResponse.setPolicType(result[4] != null ? result[4].toString() : null);
                     insurancePolicyResponse.setPolicOrgName(result[5] != null ? result[5].toString() : null);
                 }
+                saveInsurancePolicyLog(new InsurancePolicy(tinPin, type, policType, "OK", insurancePolicyResponse.toString(), new Timestamp(System.currentTimeMillis())));
                 return new ApiResponse("OK", true, insurancePolicyResponse);
             } else {
                 Double result = paymentCheckImpl.result(tinPin);
                 if (result >= 1000 * 375000) {
+                    saveInsurancePolicyLog(new InsurancePolicy(tinPin, type, policType, "OK", "mablag' yetarli", new Timestamp(System.currentTimeMillis())));
                     return new ApiResponse("OK", true, "mablag' yetarli");
                 } else {
+                    saveInsurancePolicyLog(new InsurancePolicy(tinPin, type, policType, "OK", "mablag' yetarli emas", new Timestamp(System.currentTimeMillis())));
                     return new ApiResponse("OK", true, "mablag' yetarli emas");
                 }
             }
@@ -98,5 +106,9 @@ public class InsurancePolicyService {
 
     public ApiResponse getAppealCourierOrg(AppealCourierOrgRequest appealCourierOrgRequest) {
         return new ApiResponse("OK", true, null);
+    }
+
+    public void saveInsurancePolicyLog(InsurancePolicy insurancePolicy) {
+        insurancePolicyRepository.save(insurancePolicy);
     }
 }
