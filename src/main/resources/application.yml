@@ -1,7 +1,7 @@
 server:
   port: 7575
   servlet:
-    context-path:
+     context-path:
 spring:
   flyway:
     enabled: true

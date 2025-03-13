@@ -5,11 +5,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import uz.dbq.appadliyaintegration.payload.ApiResponse;
-import uz.dbq.appadliyaintegration.payload.request.AppealCourierOrgRequest;
-import uz.dbq.appadliyaintegration.payload.request.AppealCustomsBrokersRequest;
-import uz.dbq.appadliyaintegration.payload.request.RegistryCourierOrgRequest;
-import uz.dbq.appadliyaintegration.payload.request.RegistryCustomsBrokersRequest;
+import uz.dbq.appadliyaintegration.payload.response.ApiResponse;
+import uz.dbq.appadliyaintegration.payload.request.*;
 import uz.dbq.appadliyaintegration.service.InsurancePolicyService;
 
 @RestController
@@ -23,6 +20,18 @@ public class InsurancePolicyController {
                                             @RequestParam(required = false, name = "type") String type,
                                             @RequestParam(required = false, name = "policType") String policType) {
         ApiResponse apiResponse = insurancePolicyService.getInsurancePolicy(tinPin, type, policType);
+        return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
+    }
+
+    @PostMapping("/application")
+    public HttpEntity<?> getApplication(@Valid @RequestBody ApplicationRequest applicationRequest) {
+        ApiResponse apiResponse = insurancePolicyService.getApplication(applicationRequest);
+        return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
+    }
+
+    @PostMapping("/register")
+    public HttpEntity<?> getRegister(@Valid @RequestBody RegisterRequest registerRequest) {
+        ApiResponse apiResponse = insurancePolicyService.getRegister(registerRequest);
         return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
     }
 

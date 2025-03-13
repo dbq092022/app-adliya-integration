@@ -4,30 +4,44 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import uz.dbq.appadliyaintegration.entity.entity1.InsurancePolicy;
-import uz.dbq.appadliyaintegration.payload.ApiResponse;
-import uz.dbq.appadliyaintegration.payload.request.AppealCourierOrgRequest;
-import uz.dbq.appadliyaintegration.payload.request.AppealCustomsBrokersRequest;
-import uz.dbq.appadliyaintegration.payload.request.RegistryCourierOrgRequest;
-import uz.dbq.appadliyaintegration.payload.request.RegistryCustomsBrokersRequest;
+import org.springframework.web.client.RestTemplate;
+import uz.dbq.appadliyaintegration.entity.entity1.*;
+import uz.dbq.appadliyaintegration.payload.ApplicationDto;
+import uz.dbq.appadliyaintegration.payload.RegisterDto;
+import uz.dbq.appadliyaintegration.payload.request.*;
+import uz.dbq.appadliyaintegration.payload.response.ApiResponse;
 import uz.dbq.appadliyaintegration.payload.response.InsurancePolicyResponse;
-import uz.dbq.appadliyaintegration.repository.repo1.InsurancePolicyRepository;
+import uz.dbq.appadliyaintegration.repository.repo1.*;
 
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class InsurancePolicyService {
     private final PaymentCheckImpl paymentCheckImpl;
     private final InsurancePolicyRepository insurancePolicyRepository;
+    private final ApplicationIdRepository applicationIdRepository;
+    private final RestTemplate restTemplate;
+    private final String mspdIp = "10.190.25.10";
+    private final ApplicationRepository applicationRepository;
+    private final RegisterIdRepository registerIdRepository;
+    private final RegisterRepository registerRepository;
     @Qualifier("entityManagerFactoryDataBaseSecond")
     @PersistenceContext(unitName = "dataBaseSecond")
     private EntityManager entityManager;
 
-    public InsurancePolicyService(PaymentCheckImpl paymentCheckImpl, InsurancePolicyRepository insurancePolicyRepository) {
+    public InsurancePolicyService(PaymentCheckImpl paymentCheckImpl, InsurancePolicyRepository insurancePolicyRepository, ApplicationIdRepository applicationIdRepository, RestTemplate restTemplate, ApplicationRepository applicationRepository, RegisterIdRepository registerIdRepository, RegisterRepository registerRepository) {
         this.paymentCheckImpl = paymentCheckImpl;
         this.insurancePolicyRepository = insurancePolicyRepository;
+        this.applicationIdRepository = applicationIdRepository;
+        this.restTemplate = restTemplate;
+        this.applicationRepository = applicationRepository;
+        this.registerIdRepository = registerIdRepository;
+        this.registerRepository = registerRepository;
     }
 
     public ApiResponse getInsurancePolicy(String tinPin, String type, String policType) {
@@ -108,7 +122,82 @@ public class InsurancePolicyService {
         return new ApiResponse("OK", true, null);
     }
 
+    public ApiResponse getApplication(ApplicationRequest applicationRequest) {
+        ApplicationId applicationId = new ApplicationId();
+        applicationId.setApplicationId(applicationRequest.getApplication_id());
+        applicationId.setGetData(0);
+        applicationId.setInstime(new Timestamp(System.currentTimeMillis()));
+        applicationIdRepository.save(applicationId);
+
+        String token = getToken();
+        String url = "http://" + mspdIp + " /v1/application/customs/" + applicationRequest.getApplication_id();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+        ResponseEntity<ApplicationDto> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, ApplicationDto.class);
+
+        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+            ApplicationDto applicationDto = response.getBody();
+            Application applicationEntity = new Application();
+            applicationEntity.setApplicationId(applicationDto.getApplicationName());
+            applicationRepository.save(applicationEntity);
+        }
+
+        applicationId.setGetDataTime(new Timestamp(System.currentTimeMillis()));
+        applicationId.setGetData(1);
+        applicationIdRepository.save(applicationId);
+
+        return new ApiResponse("OK", true, "success");
+    }
+
+    public ApiResponse getRegister(RegisterRequest registerRequest) {
+        RegisterId registerId = new RegisterId();
+        registerId.setRegisterId(registerRequest.getRegister_id());
+        registerId.setGetData(0);
+        registerId.setInstime(new Timestamp(System.currentTimeMillis()));
+        registerIdRepository.save(registerId);
+
+        String token = getToken();
+        String url = "http://" + mspdIp + " /v1/register/customs/" + registerRequest.getRegister_id();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+        ResponseEntity<RegisterDto> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, RegisterDto.class);
+
+        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+            RegisterDto registerDto = response.getBody();
+            Register registerEntity = new Register();
+            registerEntity.setRegisterName(registerDto.getRegisterName());
+            registerRepository.save(registerEntity);
+        }
+
+        registerId.setGetDataTime(new Timestamp(System.currentTimeMillis()));
+        registerId.setGetData(1);
+        registerIdRepository.save(registerId);
+
+        return new ApiResponse("OK", true, "success");
+    }
+
     public void saveInsurancePolicyLog(InsurancePolicy insurancePolicy) {
         insurancePolicyRepository.save(insurancePolicy);
+    }
+
+    public String getToken() {
+        String url = "http://" + mspdIp + " /v1/oauth/organization/token";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, String> body = new HashMap<>();
+        body.put("username", "gtk");
+        body.put("password", "DbQ12!@");
+
+        HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(body, headers);
+
+        return restTemplate.postForObject(url, requestEntity, String.class);
     }
 }

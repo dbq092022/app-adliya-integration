@@ -5,7 +5,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import uz.dbq.appadliyaintegration.payload.ApiResponse;
+import uz.dbq.appadliyaintegration.payload.response.ApiResponse;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
