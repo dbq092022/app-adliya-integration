@@ -9,6 +9,8 @@ import uz.dbq.appadliyaintegration.payload.response.ApiResponse;
 import uz.dbq.appadliyaintegration.payload.request.*;
 import uz.dbq.appadliyaintegration.service.InsurancePolicyService;
 
+import java.io.IOException;
+
 @RestController
 @RequestMapping("/api/v1")
 public class InsurancePolicyController {
@@ -24,13 +26,13 @@ public class InsurancePolicyController {
     }
 
     @PostMapping("/application")
-    public HttpEntity<?> getApplication(@Valid @RequestBody ApplicationRequest applicationRequest) {
+    public HttpEntity<?> getApplication(@Valid @RequestBody ApplicationRequest applicationRequest) throws IOException {
         ApiResponse apiResponse = insurancePolicyService.getApplication(applicationRequest);
         return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
     }
 
     @PostMapping("/register")
-    public HttpEntity<?> getRegister(@Valid @RequestBody RegisterRequest registerRequest) {
+    public HttpEntity<?> getRegister(@Valid @RequestBody RegisterRequest registerRequest) throws IOException {
         ApiResponse apiResponse = insurancePolicyService.getRegister(registerRequest);
         return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
     }

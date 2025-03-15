@@ -1,46 +1,49 @@
 package uz.dbq.appadliyaintegration.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
+import jakarta.transaction.Transactional;
+import okhttp3.*;
+import okhttp3.MediaType;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import uz.dbq.appadliyaintegration.entity.entity1.*;
-import uz.dbq.appadliyaintegration.payload.ApplicationDto;
-import uz.dbq.appadliyaintegration.payload.RegisterDto;
 import uz.dbq.appadliyaintegration.payload.request.*;
 import uz.dbq.appadliyaintegration.payload.response.ApiResponse;
 import uz.dbq.appadliyaintegration.payload.response.InsurancePolicyResponse;
 import uz.dbq.appadliyaintegration.repository.repo1.*;
 
+import java.io.IOException;
 import java.sql.Timestamp;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import static uz.dbq.appadliyaintegration.config.OkHttpClientConfig.getUnsafeOkHttpClient;
 
 @Service
 public class InsurancePolicyService {
     private final PaymentCheckImpl paymentCheckImpl;
     private final InsurancePolicyRepository insurancePolicyRepository;
-    private final ApplicationIdRepository applicationIdRepository;
-    private final RestTemplate restTemplate;
     private final String mspdIp = "10.190.25.10";
     private final ApplicationRepository applicationRepository;
-    private final RegisterIdRepository registerIdRepository;
     private final RegisterRepository registerRepository;
+
+
     @Qualifier("entityManagerFactoryDataBaseSecond")
     @PersistenceContext(unitName = "dataBaseSecond")
     private EntityManager entityManager;
 
-    public InsurancePolicyService(PaymentCheckImpl paymentCheckImpl, InsurancePolicyRepository insurancePolicyRepository, ApplicationIdRepository applicationIdRepository, RestTemplate restTemplate, ApplicationRepository applicationRepository, RegisterIdRepository registerIdRepository, RegisterRepository registerRepository) {
+    public InsurancePolicyService(PaymentCheckImpl paymentCheckImpl, InsurancePolicyRepository insurancePolicyRepository, ApplicationRepository applicationRepository, RegisterRepository registerRepository) {
         this.paymentCheckImpl = paymentCheckImpl;
         this.insurancePolicyRepository = insurancePolicyRepository;
-        this.applicationIdRepository = applicationIdRepository;
-        this.restTemplate = restTemplate;
         this.applicationRepository = applicationRepository;
-        this.registerIdRepository = registerIdRepository;
         this.registerRepository = registerRepository;
     }
 
@@ -76,7 +79,7 @@ public class InsurancePolicyService {
                         "    INSURANCE.AGREEMNT a\n" +
                         "    left join INSURANCE.POLIS p on p.id = a.id\n" +
                         "    where p.PL_INTENT_TYPE in (" + policType + ")  -- 5 broker, 6 kurier\n" +
-                        "and a.CL_INN='" + tinPin + "'";
+                        "and a.CL_INN='" + tinPin + "' order by a.VALID_TO desc limit 1";
 
                 Query query = entityManager.createNativeQuery(sql);
                 List<Object[]> results = query.getResultList();
@@ -122,82 +125,119 @@ public class InsurancePolicyService {
         return new ApiResponse("OK", true, null);
     }
 
-    public ApiResponse getApplication(ApplicationRequest applicationRequest) {
-        ApplicationId applicationId = new ApplicationId();
-        applicationId.setApplicationId(applicationRequest.getApplication_id());
-        applicationId.setGetData(0);
-        applicationId.setInstime(new Timestamp(System.currentTimeMillis()));
-        applicationIdRepository.save(applicationId);
+    @Transactional
+    public ApiResponse getApplication(ApplicationRequest applicationRequest) throws IOException {
+        Application application = new Application();
+        application.setApplicationId(applicationRequest.getApplication_id());
+        application.setGetData(0);
+        application.setInstime(new Timestamp(System.currentTimeMillis()));
+        applicationRepository.save(application);
 
         String token = getToken();
-        String url = "http://" + mspdIp + " /v1/application/customs/" + applicationRequest.getApplication_id();
+        String url = "https://" + mspdIp + "/v1/application/customs/" + applicationRequest.getApplication_id();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
+        OkHttpClient client = getUnsafeOkHttpClient(); // Sertifikat tekshirishni o‘chirilgan client
 
-        HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-        ResponseEntity<ApplicationDto> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, ApplicationDto.class);
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Authorization", "Bearer " + token)
+                .addHeader("Content-Type", "application/json")
+                .build();
 
-        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-            ApplicationDto applicationDto = response.getBody();
-            Application applicationEntity = new Application();
-            applicationEntity.setApplicationId(applicationDto.getApplicationName());
-            applicationRepository.save(applicationEntity);
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Error: " + response.code() + " - " + response.body().string());
+            }
+
+            String responseBody = response.body().string();
+            JsonNode rootNode = new ObjectMapper().readTree(responseBody);
+
+            if (rootNode.has("application")) {
+                application.setGetDataTime(new Timestamp(System.currentTimeMillis()));
+                application.setGetData(1);
+                application.setInn(rootNode.path("application").path("tin").asText());
+                application.setApplicationClb(responseBody);
+                applicationRepository.save(application);
+            }
         }
 
-        applicationId.setGetDataTime(new Timestamp(System.currentTimeMillis()));
-        applicationId.setGetData(1);
-        applicationIdRepository.save(applicationId);
-
-        return new ApiResponse("OK", true, "success");
+        return new ApiResponse("OK", true, "application has been saved");
     }
 
-    public ApiResponse getRegister(RegisterRequest registerRequest) {
-        RegisterId registerId = new RegisterId();
-        registerId.setRegisterId(registerRequest.getRegister_id());
-        registerId.setGetData(0);
-        registerId.setInstime(new Timestamp(System.currentTimeMillis()));
-        registerIdRepository.save(registerId);
+
+    @Transactional
+    public ApiResponse getRegister(RegisterRequest registerRequest) throws IOException {
+        Register register = new Register();
+        register.setRegisterId(registerRequest.getRegister_id());
+        register.setGetData(0);
+        register.setInstime(new Timestamp(System.currentTimeMillis()));
+        registerRepository.save(register);
 
         String token = getToken();
-        String url = "http://" + mspdIp + " /v1/register/customs/" + registerRequest.getRegister_id();
+        String url = "https://" + mspdIp + "/v1/register/customs/" + registerRequest.getRegister_id();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
+        OkHttpClient client = getUnsafeOkHttpClient(); // Sertifikat tekshirishni o‘chirilgan client
 
-        HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-        ResponseEntity<RegisterDto> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, RegisterDto.class);
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Authorization", "Bearer " + token)
+                .addHeader("Content-Type", "application/json")
+                .build();
 
-        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-            RegisterDto registerDto = response.getBody();
-            Register registerEntity = new Register();
-            registerEntity.setRegisterName(registerDto.getRegisterName());
-            registerRepository.save(registerEntity);
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Error: " + response.code() + " - " + response.body().string());
+            }
+
+            String responseBody = response.body().string();
+            JsonNode rootNode = new ObjectMapper().readTree(responseBody);
+
+            if (rootNode.has("register")) {
+                register.setGetDataTime(new Timestamp(System.currentTimeMillis()));
+                register.setGetData(1);
+                register.setInn(rootNode.path("register").path("tin").asText());
+                register.setRegisterClb(responseBody);
+                registerRepository.save(register);
+            }
         }
 
-        registerId.setGetDataTime(new Timestamp(System.currentTimeMillis()));
-        registerId.setGetData(1);
-        registerIdRepository.save(registerId);
-
-        return new ApiResponse("OK", true, "success");
+        return new ApiResponse("OK", true, "register has been saved");
     }
+
 
     public void saveInsurancePolicyLog(InsurancePolicy insurancePolicy) {
         insurancePolicyRepository.save(insurancePolicy);
     }
 
-    public String getToken() {
-        String url = "http://" + mspdIp + " /v1/oauth/organization/token";
+    public String getToken() throws IOException {
+        String url = "https://" + mspdIp + "/v1/oauth/organization/token";
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        OkHttpClient client = getUnsafeOkHttpClient(); // Sertifikat tekshirishni o‘chirilgan client
 
-        Map<String, String> body = new HashMap<>();
-        body.put("username", "gtk");
-        body.put("password", "DbQ12!@");
+        String jsonBody = new Gson().toJson(Map.of("username", "dbq", "password", "dbq"));
 
-        HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(body, headers);
+        RequestBody body = RequestBody.create(jsonBody, MediaType.get("application/json"));
 
-        return restTemplate.postForObject(url, requestEntity, String.class);
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .addHeader("Content-Type", "application/json")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Error: " + response.code() + " - " + response.body().string());
+            }
+
+            String responseBody = response.body().string();
+            JsonObject jsonObject = JsonParser.parseString(responseBody).getAsJsonObject();
+
+            return jsonObject.has("access_token") ? jsonObject.get("access_token").getAsString() : null;
+        }
     }
+
+
+
 }

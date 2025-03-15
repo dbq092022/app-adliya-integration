@@ -34,7 +34,7 @@ import java.util.Properties;
 @EnableTransactionManagement
 @EnableJpaRepositories(
         entityManagerFactoryRef = "entityManagerFactoryDataBaseThird",
-        transactionManagerRef = "transactionManagerDataBaseThird",
+//        transactionManagerRef = "transactionManagerDataBaseThird",
         basePackages = {"uz.dbq.appadliyaintegration.repository.repo3"}
 )
 public class Db3 {
@@ -154,11 +154,11 @@ public class Db3 {
         }};
     }
 
-    @Bean
-    public PlatformTransactionManager transactionManagerDataBaseThird(
-            final @Qualifier("entityManagerFactoryDataBaseThird") LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseThird) {
-        return new JpaTransactionManager(Objects.requireNonNull(entityManagerFactoryDataBaseThird.getObject()));
-    }
+//    @Bean
+//    public PlatformTransactionManager transactionManagerDataBaseThird(
+//            final @Qualifier("entityManagerFactoryDataBaseThird") LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseThird) {
+//        return new JpaTransactionManager(Objects.requireNonNull(entityManagerFactoryDataBaseThird.getObject()));
+//    }
 }
 
 
