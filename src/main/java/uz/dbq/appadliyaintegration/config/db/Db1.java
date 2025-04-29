@@ -58,7 +58,7 @@ public class Db1 {
     protected final String PERSISTENCE_UNIT_NAME = "dataBaseFirst";
     protected final Properties JPA_DATABASE_FIRST = new Properties() {{
         put("database-platform", "org.hibernate.dialect.DB2400Dialect");
-        put("hibernate.hbm2ddl.auto", "none");
+        put("hibernate.hbm2ddl.auto", "update");
         put("hibernate.dialect", "org.hibernate.dialect.DB2400Dialect");
         put("hibernate.show_sql", "true");
         put("generate-ddl", "true");

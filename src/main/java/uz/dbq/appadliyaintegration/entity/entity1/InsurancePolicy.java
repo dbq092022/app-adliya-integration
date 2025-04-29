@@ -1,10 +1,12 @@
 package uz.dbq.appadliyaintegration.entity.entity1;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.GenericGenerator;
 
-import java.io.Serializable;
 import java.util.Date;
 
 @Entity
@@ -33,7 +35,7 @@ public class InsurancePolicy {
     @Column(name = "MESSAGE")
     private String message;
 
-    @Column(name = "RESP_JSON")
+    //    @Column(name = "RESP_JSON")
     private String respJson;
 
     @Column(name = "INSTIME")

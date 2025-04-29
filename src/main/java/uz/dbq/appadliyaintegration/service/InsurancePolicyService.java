@@ -10,20 +10,24 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
 import okhttp3.*;
-import okhttp3.MediaType;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import uz.dbq.appadliyaintegration.entity.entity1.*;
+import uz.dbq.appadliyaintegration.entity.entity1.Application;
+import uz.dbq.appadliyaintegration.entity.entity1.InsurancePolicy;
+import uz.dbq.appadliyaintegration.entity.entity1.Register;
 import uz.dbq.appadliyaintegration.payload.request.*;
 import uz.dbq.appadliyaintegration.payload.response.ApiResponse;
 import uz.dbq.appadliyaintegration.payload.response.InsurancePolicyResponse;
-import uz.dbq.appadliyaintegration.repository.repo1.*;
+import uz.dbq.appadliyaintegration.repository.repo1.ApplicationRepository;
+import uz.dbq.appadliyaintegration.repository.repo1.InsurancePolicyRepository;
+import uz.dbq.appadliyaintegration.repository.repo1.RegisterRepository;
 
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static uz.dbq.appadliyaintegration.config.OkHttpClientConfig.getUnsafeOkHttpClient;
 
@@ -159,6 +163,9 @@ public class InsurancePolicyService {
                 application.setInn(rootNode.path("application").path("tin").asText());
                 application.setApplicationClb(responseBody);
                 applicationRepository.save(application);
+
+//                ApplicationEntity applicationEntity = objectMapper.readValue(responseBody, ApplicationEntity.class);
+//                applicationEntityRepository.save(applicationEntity);
             }
         }
 
@@ -166,7 +173,6 @@ public class InsurancePolicyService {
     }
 
 
-    @Transactional
     public ApiResponse getRegister(RegisterRequest registerRequest) throws IOException {
         Register register = new Register();
         register.setRegisterId(registerRequest.getRegister_id());
@@ -195,10 +201,45 @@ public class InsurancePolicyService {
             JsonNode rootNode = new ObjectMapper().readTree(responseBody);
 
             if (rootNode.has("register")) {
+                JsonNode registerNode = rootNode.path("register");
+                register.setActive(registerNode.path("active").asBoolean());
+                register.setName(registerNode.path("name").asText());
+                register.setTin(registerNode.path("tin").asText());
+                register.setPin(registerNode.path("pin").asText());
+                register.setRegisterNumber(registerNode.path("registration_number").asText());
+                register.setRegisterNumber(registerNode.path("register_number").asText());
+                register.setSerial(registerNode.path("serial").asText());
+                register.setNumber(registerNode.path("number").asText());
+
+                SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+                try {
+                    Date registrationDate = sdf.parse(registerNode.path("registration_date").asText());
+                    register.setRegistrationDate(registrationDate);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                try {
+                    Date expiryDate = sdf.parse(registerNode.path("expiry_date").asText());
+                    register.setExpiryDate(expiryDate);
+                } catch (Exception e) {
+                    System.out.println();
+                }
+
+                register.setRegionId(registerNode.path("region_id").asText());
+                register.setSubRegionId(registerNode.path("sub_region_id").asText());
+                register.setAddress(registerNode.path("address").asText());
+                register.setCertificateUuid(registerNode.path("certificate_uuid").asText());
                 register.setGetDataTime(new Timestamp(System.currentTimeMillis()));
                 register.setGetData(1);
-                register.setInn(rootNode.path("register").path("tin").asText());
-                register.setRegisterClb(responseBody);
+//                register.setRegisterClb(responseBody);
+
+                register.setStatus(registerNode.path("status").path("status").asText());
+                register.setType(registerNode.path("type").path("oz").asText());
+                register.setDocumentId(registerNode.path("document").path("id").asText());
+                register.setDocumentName(registerNode.path("document").path("name_oz").asText());
+                register.setCategory(registerNode.path("category").path("oz").asText());
+
                 registerRepository.save(register);
             }
         }
@@ -237,7 +278,6 @@ public class InsurancePolicyService {
             return jsonObject.has("access_token") ? jsonObject.get("access_token").getAsString() : null;
         }
     }
-
 
 
 }
