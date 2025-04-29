@@ -11,7 +11,6 @@ import uz.dbq.appadliyaintegration.payload.response.ApiResponse;
 import uz.dbq.appadliyaintegration.service.InsurancePolicyService;
 
 import java.io.IOException;
-import java.text.ParseException;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -34,32 +33,8 @@ public class InsurancePolicyController {
     }
 
     @PostMapping("/register")
-    public HttpEntity<?> getRegister(@Valid @RequestBody RegisterRequest registerRequest) throws IOException, ParseException {
+    public HttpEntity<?> getRegister(@Valid @RequestBody RegisterRequest registerRequest) throws IOException {
         ApiResponse apiResponse = insurancePolicyService.getRegister(registerRequest);
         return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
     }
-
-//    @PostMapping("/registry-customs-brokers")
-//    public HttpEntity<?> getRegistryCustomsBrokers(@Valid @RequestBody RegistryCustomsBrokersRequest registryCustomsBrokersRequest) {
-//        ApiResponse apiResponse = insurancePolicyService.getRegistryCustomsBrokers(registryCustomsBrokersRequest);
-//        return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
-//    }
-//
-//    @PostMapping("/appeal-customs-brokers")
-//    public HttpEntity<?> getAppealCustomsBrokers(@Valid @RequestBody AppealCustomsBrokersRequest appealCustomsBrokersRequest) {
-//        ApiResponse apiResponse = insurancePolicyService.getAppealCustomsBrokers(appealCustomsBrokersRequest);
-//        return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
-//    }
-//
-//    @PostMapping("/registry-courier-org")
-//    public HttpEntity<?> getRegistryCourierOrg(@Valid @RequestBody RegistryCourierOrgRequest registryCourierOrgRequest) {
-//        ApiResponse apiResponse = insurancePolicyService.getRegistryCourierOrg(registryCourierOrgRequest);
-//        return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
-//    }
-//
-//    @PostMapping("/appeal-courier-org")
-//    public HttpEntity<?> getAppealCourierOrg(@Valid @RequestBody AppealCourierOrgRequest appealCourierOrgRequest) {
-//        ApiResponse apiResponse = insurancePolicyService.getAppealCourierOrg(appealCourierOrgRequest);
-//        return ResponseEntity.status(apiResponse.isSuccess() ? 200 : 400).body(apiResponse);
-//    }
 }

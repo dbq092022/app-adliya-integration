@@ -38,7 +38,55 @@ public class Application {
     @Column(name = "INN")
     private String inn;
 
+    @Lob
     @Column(name = "APPLICATION_CLB")
     private String applicationClb;
 
+    @Column(name = "DOCUMENT_NAME_OZ")
+    private String documentNameOz;
+
+    @Column(name = "CATEGORY_NAME_OZ")
+    private String categoryNameOz;
+
+    @Column(name = "TYPE_NAME_OZ")
+    private String typeNameOz;
+
+    @Column(name = "APPLICATION_TYPE")
+    private String applicationType;
+
+    @Column(name = "APPLICATION_STATUS")
+    private String applicationStatus;
+
+    @Column(name = "REVIEW_STATUS")
+    private String reviewStatus;
+
+    @Column(name = "CABINET_TYPE")
+    private String cabinetType;
+
+    @Column(name = "APPLICANT_NAME")
+    private String applicantName;
+
+    @Column(name = "TIN")
+    private String tin;
+
+    @Column(name = "PIN")
+    private String pin;
+
+    @Column(name = "REGISTRATION_DATE")
+    private String registrationDate;
+
+    @Column(name = "REGISTRATION_NUMBER")
+    private String registrationNumber;
+
+    @Column(name = "NUMBER")
+    private String number;
+
+    @Column(name = "REGISTER_ID")
+    private String registerId;
+
+    @Column(name = "CREATED_AT")
+    private String createdAt;
+
+    @Column(name = "COMPLETED_AT")
+    private String completedAt;
 }
