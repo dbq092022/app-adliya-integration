@@ -10,7 +10,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
@@ -30,7 +32,7 @@ import java.util.Properties;
 @EnableTransactionManagement
 @EnableJpaRepositories(
         entityManagerFactoryRef = "entityManagerFactoryDataBaseSecond",
-//        transactionManagerRef = "transactionManagerDataBaseSecond",
+        transactionManagerRef = "transactionManagerDataBaseSecond",
         basePackages = {"uz.dbq.appadliyaintegration.repository.repo2"}
 )
 public class Db2 {
@@ -150,11 +152,12 @@ public class Db2 {
         }};
     }
 
-//    @Bean
-//    public PlatformTransactionManager transactionManagerDataBaseSecond(
-//            final @Qualifier("entityManagerFactoryDataBaseSecond") LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseSecond) {
-//        return new JpaTransactionManager(Objects.requireNonNull(entityManagerFactoryDataBaseSecond.getObject()));
-//    }
+    @Bean(name = "transactionManagerDataBaseSecond")
+    public PlatformTransactionManager transactionManagerDataBaseSecond(
+            @Qualifier("entityManagerFactoryDataBaseSecond")
+            LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseSecond) {
+        return new JpaTransactionManager(entityManagerFactoryDataBaseSecond.getObject());
+    }
 }
 
 

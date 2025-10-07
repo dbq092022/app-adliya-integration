@@ -11,6 +11,7 @@ import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import uz.dbq.appadliyaintegration.entity.entity1.*;
 import uz.dbq.appadliyaintegration.payload.request.ApplicationRequest;
@@ -41,12 +42,12 @@ public class InsurancePolicyService {
     private final Step4AppRepository step4AppRepository;
     private final Step1AppRepository step1AppRepository;
 
+    private final JdbcTemplate jdbcTemplateSecond;
 
-    @Qualifier("entityManagerFactoryDataBaseSecond")
     @PersistenceContext(unitName = "dataBaseSecond")
-    private EntityManager entityManager;
+    private EntityManager entityManagerSecond;
 
-    public InsurancePolicyService(PaymentCheckImpl paymentCheckImpl, InsurancePolicyRepository insurancePolicyRepository, ApplicationRepository applicationRepository, RegisterRepository registerRepository, InvoiceRepository invoiceRepository, Step3AppRepository step3AppRepository, Step4AppRepository step4AppRepository, Step1AppRepository step1AppRepository) {
+    public InsurancePolicyService(@Qualifier("dataBaseSecond") javax.sql.DataSource dataSource, PaymentCheckImpl paymentCheckImpl, InsurancePolicyRepository insurancePolicyRepository, ApplicationRepository applicationRepository, RegisterRepository registerRepository, InvoiceRepository invoiceRepository, Step3AppRepository step3AppRepository, Step4AppRepository step4AppRepository, Step1AppRepository step1AppRepository) {
         this.paymentCheckImpl = paymentCheckImpl;
         this.insurancePolicyRepository = insurancePolicyRepository;
         this.applicationRepository = applicationRepository;
@@ -55,6 +56,7 @@ public class InsurancePolicyService {
         this.step3AppRepository = step3AppRepository;
         this.step4AppRepository = step4AppRepository;
         this.step1AppRepository = step1AppRepository;
+        this.jdbcTemplateSecond = new JdbcTemplate(dataSource);
     }
 
     public ApiResponse getInsurancePolicy(String tinPin, String type, String policType) {
@@ -89,9 +91,9 @@ public class InsurancePolicyService {
                         "    INSURANCE.AGREEMNT a\n" +
                         "    left join INSURANCE.POLIS p on p.id = a.id\n" +
                         "    where p.PL_INTENT_TYPE in (" + policType + ")  -- 5 broker, 6 kurier\n" +
-                        "and a.CL_INN='" + tinPin + "' order by a.VALID_TO desc limit 1";
+                        "and a.CL_INN='" + tinPin + "' order by P.PL_DT desc limit 1";
 
-                Query query = entityManager.createNativeQuery(sql);
+                Query query = entityManagerSecond.createNativeQuery(sql);
                 List<Object[]> results = query.getResultList();
                 InsurancePolicyResponse insurancePolicyResponse = new InsurancePolicyResponse();
                 for (Object[] result : results) {
@@ -369,8 +371,6 @@ public class InsurancePolicyService {
                 register.setCertificateUuid(registerNode.path("certificate_uuid").asText());
                 register.setGetDataTime(new Timestamp(System.currentTimeMillis()));
                 register.setGetData(1);
-//                register.setRegisterClb(responseBody);
-
                 register.setStatus(registerNode.path("status").path("status").asText());
                 register.setType(registerNode.path("type").path("oz").asText());
                 register.setDocumentId(registerNode.path("document").path("id").asText());
@@ -378,9 +378,23 @@ public class InsurancePolicyService {
                 register.setCategory(registerNode.path("category").path("oz").asText());
 
                 registerRepository.save(register);
+
+                String sql = """
+                            UPDATE INSURANCE.POLIS p
+                            SET p.PL_STATUS = 1,
+                                p.UPDTIME = CURRENT TIMESTAMP
+                            WHERE p.ID IN (
+                                SELECT p2.id
+                                FROM INSURANCE.AGREEMNT a
+                                LEFT JOIN INSURANCE.POLIS p2 ON a.id = p2.id
+                                WHERE a.CL_INN = ?
+                                  AND p2.PL_INTENT_TYPE in ('5','6')
+                            )
+                        """;
+
+                jdbcTemplateSecond.update(sql, register.getTin());
             }
         }
-
         return new ApiResponse("OK", true, "register has been saved");
     }
 

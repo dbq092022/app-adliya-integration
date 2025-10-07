@@ -155,10 +155,12 @@ public class Db1 {
         }};
     }
 
-    @Bean
+    @Bean(name = "transactionManagerDataBaseFirst")
+    @Primary
     public PlatformTransactionManager transactionManagerDataBaseFirst(
-            final @Qualifier("entityManagerFactoryDataBaseFirst") LocalContainerEntityManagerFactoryBean entityManagerFactoryDataBaseFirst) {
-        return new JpaTransactionManager(Objects.requireNonNull(entityManagerFactoryDataBaseFirst.getObject()));
+            @Qualifier("entityManagerFactoryDataBaseFirst")
+            LocalContainerEntityManagerFactoryBean factory) {
+        return new JpaTransactionManager(factory.getObject());
     }
 }
 

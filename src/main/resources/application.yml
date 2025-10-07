@@ -36,8 +36,8 @@ spring:
         connection-test-query: SELECT 1
     data-base-second: #Data Base Main data
       url: jdbc:as400://db210.db.gtk/INSURANCE;sockettimeout=30000;thread used=false;transaction isolation=read commited;translatebinary=true;date format=iso;prompt=false
-      username: Dilmurod
-      password: 606191
+      username: ilhom
+      password: dexterkan
       driver-class-name: com.ibm.as400.access.AS400JDBCDriver
       hikari:
         connection-test-query: SELECT 1
