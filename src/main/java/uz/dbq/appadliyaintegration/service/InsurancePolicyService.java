@@ -8,7 +8,6 @@ import com.google.gson.JsonParser;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
-import jakarta.transaction.Transactional;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,10 +22,7 @@ import uz.dbq.appadliyaintegration.repository.repo1.*;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static uz.dbq.appadliyaintegration.config.OkHttpClientConfig.getUnsafeOkHttpClient;
 
@@ -108,7 +104,7 @@ public class InsurancePolicyService {
                 return new ApiResponse("OK", true, insurancePolicyResponse);
             } else {
                 Double result = paymentCheckImpl.result(tinPin);
-                if (result >= 1000 * 375000) {
+                if (result >= 1000 * 412000) {
                     saveInsurancePolicyLog(new InsurancePolicy(tinPin, type, policType, "OK", "mablag' yetarli", new Timestamp(System.currentTimeMillis())));
                     return new ApiResponse("OK", true, "mablag' yetarli");
                 } else {
@@ -121,283 +117,305 @@ public class InsurancePolicyService {
         }
     }
 
-    @Transactional
     public ApiResponse getApplication(ApplicationRequest applicationRequest) throws IOException {
-        Application application = new Application();
-        application.setApplicationId(applicationRequest.getApplication_id());
-        application.setGetData(0);
-        application.setInstime(new Timestamp(System.currentTimeMillis()));
-        applicationRepository.save(application);
+        Optional<Application> optionalApplication = applicationRepository.findByApplicationId(applicationRequest.getApplication_id());
+        if (optionalApplication.isEmpty()) {
+            Application application = new Application();
+            application.setApplicationId(applicationRequest.getApplication_id());
+            application.setGetData(0);
+            application.setInstime(new Timestamp(System.currentTimeMillis()));
 
-        String token = getToken();
-        String url = "https://" + mspdIp + "/v1/application/customs/" + applicationRequest.getApplication_id();
+            String token = getToken();
+            String url = "https://" + mspdIp + "/v1/application/customs/" + applicationRequest.getApplication_id();
 
-        OkHttpClient client = getUnsafeOkHttpClient(); // Sertifikat tekshirishni o‘chirilgan client
+            OkHttpClient client = getUnsafeOkHttpClient(); // Sertifikat tekshirishni o‘chirilgan client
 
-        Request request = new Request.Builder()
-                .url(url)
-                .get()
-                .addHeader("Authorization", "Bearer " + token)
-                .addHeader("Content-Type", "application/json")
-                .build();
+            Request request = new Request.Builder()
+                    .url(url)
+                    .get()
+                    .addHeader("Authorization", "Bearer " + token)
+                    .addHeader("Content-Type", "application/json")
+                    .build();
 
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new IOException("Error: " + response.code() + " - " + response.body().string());
-            }
-
-            String responseBody = response.body().string();
-            JsonNode rootNode = new ObjectMapper().readTree(responseBody);
-
-            String applicationId = rootNode.path("application").path("id").asText();
-            String documentNameOz = rootNode.path("application").path("document").path("name_oz").asText();
-            String categoryNameOz = rootNode.path("application").path("category").path("oz").asText();
-            String typeNameOz = rootNode.path("application").path("type").path("oz").asText();
-            String applicationType = rootNode.path("application").path("application_type").path("title").path("oz").asText();
-            String applicationStatus = rootNode.path("application").path("status").path("title").path("oz").asText();
-            String reviewStatus = rootNode.path("application").path("review_status").path("title").path("oz").asText();
-            String cabinetType = rootNode.path("application").path("cabinet_type").asText();
-            String applicantName = rootNode.path("application").path("applicant_name").asText();
-            String tin = rootNode.path("application").path("tin").asText();
-            String pin = rootNode.path("application").path("pin").asText();
-            String registrationDate = rootNode.path("application").path("registration_date").asText();
-            String registrationNumber = rootNode.path("application").path("registration_number").asText();
-            String number = rootNode.path("application").path("number").asText();
-            String registerId = rootNode.path("application").path("register_id").asText();
-            String createdAt = rootNode.path("application").path("created_at").asText();
-            String completedAt = rootNode.path("application").path("completed_at").asText();
-
-            if (rootNode.has("application")) {
-                application.setApplicationId(applicationId);
-                application.setGetDataTime(new Timestamp(System.currentTimeMillis()));
-                application.setGetData(1);
-                application.setInn(rootNode.path("application").path("tin").asText());
-                application.setApplicationClb(responseBody);
-                application.setDocumentNameOz(documentNameOz);
-                application.setCategoryNameOz(categoryNameOz);
-                application.setTypeNameOz(typeNameOz);
-                application.setApplicationType(applicationType);
-                application.setApplicationStatus(applicationStatus);
-                application.setReviewStatus(reviewStatus);
-                application.setCabinetType(cabinetType);
-                application.setApplicantName(applicantName);
-                application.setTin(tin);
-                application.setPin(pin);
-                application.setRegistrationDate(registrationDate);
-                application.setRegistrationNumber(registrationNumber);
-                application.setNumber(number);
-                application.setRegisterId(registerId);
-                application.setCreatedAt(createdAt);
-                application.setCompletedAt(completedAt);
-                applicationRepository.save(application);
-            }
-
-            List<Invoice> invoiceList = new ArrayList<>();
-
-            JsonNode invoices = rootNode.path("application").path("invoices");
-            if (invoices.isArray()) {
-                for (JsonNode invoiceNode : invoices) {
-                    Invoice invoice = new Invoice();
-                    invoice.setApplicationId(application.getId());
-                    invoice.setSerial(invoiceNode.path("serial").asText());
-                    invoice.setStatus(invoiceNode.path("status").asText());
-                    invoice.setAmount(invoiceNode.path("amount").asDouble());
-                    invoice.setDetail(invoiceNode.path("detail").asText());
-                    invoice.setIssueDate(invoiceNode.path("issue_date").asText());
-                    invoice.setPayee(invoiceNode.path("payee").asText());
-                    invoice.setPayer(invoiceNode.path("payer").asText());
-                    invoice.setBankAccount(invoiceNode.path("bank_account").asText());
-                    invoice.setBudgetAccount(invoiceNode.path("budget_account").asText());
-                    invoice.setBankName(invoiceNode.path("bank_name").asText());
-                    invoice.setBankMfo(invoiceNode.path("bank_mfo").asText());
-                    invoice.setPaidAt(invoiceNode.path("paid_at").asText());
-
-                    invoiceList.add(invoice);
+            try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    throw new IOException("Error: " + response.code() + " - " + response.body().string());
                 }
-            }
-            invoiceRepository.saveAll(invoiceList);
 
-            JsonNode fieldsStep1 = rootNode.path("application").path("steps").path("1").path("fields");
-            if (fieldsStep1 != null) {
-                String legalEntityAddress = fieldsStep1.path("LEGAL_ENTITY_ADDRESS").path("value").asText();
-                String applicantMobilePhone = fieldsStep1.path("APPLICANT_MOBILE_PHONE").path("value").asText();
-                String legalEntityTIN = fieldsStep1.path("LEGAL_ENTITY_TIN").path("value").asText();
-                String legalEntitySubRegion = fieldsStep1.path("LEGAL_ENTITY_SUB_REGION").path("value").asText();
-                String bankAccount = fieldsStep1.path("BANK_ACCOUNT").path("value").asText();
-                String legalEntityName = fieldsStep1.path("LEGAL_ENTITY_NAME").path("value").asText();
-                String legalEntityRegion = fieldsStep1.path("LEGAL_ENTITY_REGION").path("value").asText();
-                String legalEntityVillage = fieldsStep1.path("LEGAL_ENTITY_VILLAGE").path("value").asText();
-                String bankCode = fieldsStep1.path("BANK_CODE").path("value").asText();
+                String responseBody = response.body().string();
+                JsonNode rootNode = new ObjectMapper().readTree(responseBody);
 
-                Step1Application step1Application = new Step1Application();
-                step1Application.setApplicationId(application.getId());
-                step1Application.setLegalEntityAddress(legalEntityAddress);
-                step1Application.setApplicantMobilePhone(applicantMobilePhone);
-                step1Application.setLegalEntityTIN(legalEntityTIN);
-                step1Application.setLegalEntitySubRegion(legalEntitySubRegion);
-                step1Application.setBankAccount(bankAccount);
-                step1Application.setLegalEntityName(legalEntityName);
-                step1Application.setLegalEntityRegion(legalEntityRegion);
-                step1Application.setLegalEntityVillage(legalEntityVillage);
-                step1Application.setBankCode(bankCode);
-                step1AppRepository.save(step1Application);
-            }
+                String applicationId = rootNode.path("application").path("id").asText();
+                String documentNameOz = rootNode.path("application").path("document").path("name_oz").asText();
+                String categoryNameOz = rootNode.path("application").path("category").path("oz").asText();
+                String typeNameOz = rootNode.path("application").path("type").path("oz").asText();
+                String applicationType = rootNode.path("application").path("application_type").path("title").path("oz").asText();
+                String applicationStatus = rootNode.path("application").path("status").path("title").path("oz").asText();
+                String reviewStatus = rootNode.path("application").path("review_status").path("title").path("oz").asText();
+                String cabinetType = rootNode.path("application").path("cabinet_type").asText();
+                String applicantName = rootNode.path("application").path("applicant_name").asText();
+                String tin = rootNode.path("application").path("tin").asText();
+                String pin = rootNode.path("application").path("pin").asText();
+                String registrationDate = rootNode.path("application").path("registration_date").asText();
+                String registrationNumber = rootNode.path("application").path("registration_number").asText();
+                String number = rootNode.path("application").path("number").asText();
+                String registerId = rootNode.path("application").path("register_id").asText();
+                String createdAt = rootNode.path("application").path("created_at").asText();
+                String completedAt = rootNode.path("application").path("completed_at").asText();
 
-            JsonNode fieldsStep3 = rootNode.path("application").path("steps").path("3").path("list");
-
-            if (fieldsStep3.isArray()) {
-                for (JsonNode personNode : fieldsStep3) {
-                    String pinfl = personNode.path("PINFL").path("value").asText();
-                    String passport = personNode.path("PASSPORT_SERIAL_NUMBER").path("value").asText();
-                    String middleName = personNode.path("MIDDLE_NAME").path("value").asText();
-                    String firstName = personNode.path("FIRST_NAME").path("value").asText();
-                    String lastName = personNode.path("LAST_NAME").path("value").asText();
-                    String positionCompanyName = personNode.path("POSITION_COMPANY_NAME").path("value").asText();
-                    String positionDocNumber = personNode.path("POSITION_DOC_NUMBER").path("value").asText();
-                    String positionDocDate = personNode.path("POSITION_DOC_DATE").path("value").asText();
-                    String selectedSpecialist = personNode.path("SELECTED_SPECIALIST").path("value").asText();
-                    String docNumber = personNode.path("DOC_NUMBER").path("value").asText(""); // default ""
-                    String docDate = personNode.path("DOC_DATE").path("value").asText("");
-                    String docFile = personNode.path("DOC_FILE").path("value").asText("");
-
-                    Step3Application step3Application = new Step3Application();
-                    step3Application.setApplicationId(application.getId());
-                    step3Application.setPinfl(pinfl);
-                    step3Application.setPassport(passport);
-                    step3Application.setMiddleName(middleName);
-                    step3Application.setFirstName(firstName);
-                    step3Application.setLastName(lastName);
-                    step3Application.setPositionCompanyName(positionCompanyName);
-                    step3Application.setPositionDocNumber(positionDocNumber);
-                    step3Application.setPositionDocDate(positionDocDate);
-                    step3Application.setSelectedSpecialist(selectedSpecialist);
-                    step3Application.setDocNumber(docNumber);
-                    step3Application.setDocDate(docDate);
-                    step3Application.setDocFile(docFile);
-                    step3AppRepository.save(step3Application);
+                if (rootNode.has("application")) {
+                    application.setApplicationId(applicationId);
+                    application.setGetDataTime(new Timestamp(System.currentTimeMillis()));
+                    application.setGetData(1);
+                    application.setInn(rootNode.path("application").path("tin").asText());
+                    application.setApplicationClb(responseBody);
+                    application.setDocumentNameOz(documentNameOz);
+                    application.setCategoryNameOz(categoryNameOz);
+                    application.setTypeNameOz(typeNameOz);
+                    application.setApplicationType(applicationType);
+                    application.setApplicationStatus(applicationStatus);
+                    application.setReviewStatus(reviewStatus);
+                    application.setCabinetType(cabinetType);
+                    application.setApplicantName(applicantName);
+                    application.setTin(tin);
+                    application.setPin(pin);
+                    application.setRegistrationDate(registrationDate);
+                    application.setRegistrationNumber(registrationNumber);
+                    application.setNumber(number);
+                    application.setRegisterId(registerId);
+                    application.setCreatedAt(createdAt);
+                    application.setCompletedAt(completedAt);
+                    if (!applicationStatus.startsWith("Тўлдириш жараёнида")) {
+                        applicationRepository.save(application);
+                    } else {
+                        return new ApiResponse("ERROR", false, "Тўлдириш жараёнидаги ариза сакланмади");
+                    }
                 }
-            }
 
-            JsonNode fieldsStep4 = rootNode.path("application").path("steps").path("4").path("fields");
+                List<Invoice> invoiceList = new ArrayList<>();
 
-            if (fieldsStep4 != null) {
-                String documentNumber = fieldsStep4.path("DOCUMENT_NUMBER").path("value").asText("");
-                String policNumber = fieldsStep4.path("POLIC_NUMBER").path("value").asText("");
-                String policSum = fieldsStep4.path("POLIC_SUM").path("value").asText("");
-                String policDate = fieldsStep4.path("POLIC_DATE").path("value").asText("");
-                String documentDate = fieldsStep4.path("DOCUMENT_DATE").path("value").asText("");
-                String policDeadline = fieldsStep4.path("POLIC_DEADLINE").path("value").asText("");
-                String customsDepozit = fieldsStep4.path("CUSTOMS_DEPOZIT").path("value").asText("");
-                String documentFile = fieldsStep4.path("DOCUMENT_FILE").path("value").asText("");
-                String documentType = fieldsStep4.path("DOCUMENT_TYPE").path("value").asText("");
-                String policOrgName = fieldsStep4.path("POLIC_ORGNAME").path("value").asText("");
+                JsonNode invoices = rootNode.path("application").path("invoices");
+                if (invoices.isArray()) {
+                    for (JsonNode invoiceNode : invoices) {
+                        Invoice invoice = new Invoice();
+                        invoice.setApplicationId(application.getId());
+                        invoice.setSerial(invoiceNode.path("serial").asText());
+                        invoice.setStatus(invoiceNode.path("status").asText());
+                        invoice.setAmount(invoiceNode.path("amount").asDouble());
+                        invoice.setDetail(invoiceNode.path("detail").asText());
+                        invoice.setIssueDate(invoiceNode.path("issue_date").asText());
+                        invoice.setPayee(invoiceNode.path("payee").asText());
+                        invoice.setPayer(invoiceNode.path("payer").asText());
+                        invoice.setBankAccount(invoiceNode.path("bank_account").asText());
+                        invoice.setBudgetAccount(invoiceNode.path("budget_account").asText());
+                        invoice.setBankName(invoiceNode.path("bank_name").asText());
+                        invoice.setBankMfo(invoiceNode.path("bank_mfo").asText());
+                        invoice.setPaidAt(invoiceNode.path("paid_at").asText());
 
-                Step4Application step4Application = new Step4Application();
-                step4Application.setApplicationId(application.getId());
-                step4Application.setDocumentNumber(documentNumber);
-                step4Application.setPolicNumber(policNumber);
-                step4Application.setPolicSum(policSum);
-                step4Application.setPolicDate(policDate);
-                step4Application.setDocumentDate(documentDate);
-                step4Application.setPolicDeadline(policDeadline);
-                step4Application.setCustomsDepozit(customsDepozit);
-                step4Application.setDocumentFile(documentFile);
-                step4Application.setDocumentType(documentType);
-                step4Application.setPolicOrgName(policOrgName);
-                step4AppRepository.save(step4Application);
+                        invoiceList.add(invoice);
+                    }
+                }
+                invoiceRepository.saveAll(invoiceList);
+
+                JsonNode fieldsStep1 = rootNode.path("application").path("steps").path("1").path("fields");
+                if (fieldsStep1 != null) {
+                    String legalEntityAddress = fieldsStep1.path("LEGAL_ENTITY_ADDRESS").path("value").asText();
+                    String applicantMobilePhone = fieldsStep1.path("APPLICANT_MOBILE_PHONE").path("value").asText();
+                    String legalEntityTIN = fieldsStep1.path("LEGAL_ENTITY_TIN").path("value").asText();
+                    String legalEntitySubRegion = fieldsStep1.path("LEGAL_ENTITY_SUB_REGION").path("value").asText();
+                    String bankAccount = fieldsStep1.path("BANK_ACCOUNT").path("value").asText();
+                    String legalEntityName = fieldsStep1.path("LEGAL_ENTITY_NAME").path("value").asText();
+                    String legalEntityRegion = fieldsStep1.path("LEGAL_ENTITY_REGION").path("value").asText();
+                    String legalEntityVillage = fieldsStep1.path("LEGAL_ENTITY_VILLAGE").path("value").asText();
+                    String bankCode = fieldsStep1.path("BANK_CODE").path("value").asText();
+
+                    Step1Application step1Application = new Step1Application();
+                    step1Application.setApplicationId(application.getId());
+                    step1Application.setLegalEntityAddress(legalEntityAddress);
+                    step1Application.setApplicantMobilePhone(applicantMobilePhone);
+                    step1Application.setLegalEntityTIN(legalEntityTIN);
+                    step1Application.setLegalEntitySubRegion(legalEntitySubRegion);
+                    step1Application.setBankAccount(bankAccount);
+                    step1Application.setLegalEntityName(legalEntityName);
+                    step1Application.setLegalEntityRegion(legalEntityRegion);
+                    step1Application.setLegalEntityVillage(legalEntityVillage);
+                    step1Application.setBankCode(bankCode);
+                    step1AppRepository.save(step1Application);
+                }
+
+                String stepDoc = "";
+                String stepUser = "";
+
+                if (documentNameOz.startsWith("Божхона брокери")) {
+                    stepDoc = "3";
+                    stepUser = "4";
+                } else {
+                    stepDoc = "4";
+                    stepUser = "5";
+                }
+
+                JsonNode fieldsStep3 = rootNode.path("application").path("steps").path(stepDoc).path("list");
+
+                if (fieldsStep3.isArray()) {
+                    for (JsonNode personNode : fieldsStep3) {
+                        String pinfl = personNode.path("PINFL").path("value").asText();
+                        String passport = personNode.path("PASSPORT_SERIAL_NUMBER").path("value").asText();
+                        String middleName = personNode.path("MIDDLE_NAME").path("value").asText();
+                        String firstName = personNode.path("FIRST_NAME").path("value").asText();
+                        String lastName = personNode.path("LAST_NAME").path("value").asText();
+                        String positionCompanyName = personNode.path("POSITION_COMPANY_NAME").path("value").asText();
+                        String positionDocNumber = personNode.path("POSITION_DOC_NUMBER").path("value").asText();
+                        String positionDocDate = personNode.path("POSITION_DOC_DATE").path("value").asText();
+                        String selectedSpecialist = personNode.path("SELECTED_SPECIALIST").path("value").asText();
+                        String docNumber = personNode.path("DOC_NUMBER").path("value").asText(""); // default ""
+                        String docDate = personNode.path("DOC_DATE").path("value").asText("");
+                        String docFile = personNode.path("DOC_FILE").path("value").asText("");
+
+                        Step3Application step3Application = new Step3Application();
+                        step3Application.setApplicationId(application.getId());
+                        step3Application.setPinfl(pinfl);
+                        step3Application.setPassport(passport);
+                        step3Application.setMiddleName(middleName);
+                        step3Application.setFirstName(firstName);
+                        step3Application.setLastName(lastName);
+                        step3Application.setPositionCompanyName(positionCompanyName);
+                        step3Application.setPositionDocNumber(positionDocNumber);
+                        step3Application.setPositionDocDate(positionDocDate);
+                        step3Application.setSelectedSpecialist(selectedSpecialist);
+                        step3Application.setDocNumber(docNumber);
+                        step3Application.setDocDate(docDate);
+                        step3Application.setDocFile(docFile);
+                        step3AppRepository.save(step3Application);
+                    }
+                }
+
+                JsonNode fieldsStep4 = rootNode.path("application").path("steps").path(stepUser).path("fields");
+
+                if (fieldsStep4 != null) {
+                    String documentNumber = fieldsStep4.path("DOCUMENT_NUMBER").path("value").asText("");
+                    String policNumber = fieldsStep4.path("POLIC_NUMBER").path("value").asText("");
+                    String policSum = fieldsStep4.path("POLIC_SUM").path("value").asText("");
+                    String policDate = fieldsStep4.path("POLIC_DATE").path("value").asText("");
+                    String documentDate = fieldsStep4.path("DOCUMENT_DATE").path("value").asText("");
+                    String policDeadline = fieldsStep4.path("POLIC_DEADLINE").path("value").asText("");
+                    String customsDepozit = fieldsStep4.path("CUSTOMS_DEPOZIT").path("value").asText("");
+                    String documentFile = fieldsStep4.path("DOCUMENT_FILE").path("value").asText("");
+                    String documentType = fieldsStep4.path("DOCUMENT_TYPE").path("value").asText("");
+                    String policOrgName = fieldsStep4.path("POLIC_ORGNAME").path("value").asText("");
+
+                    Step4Application step4Application = new Step4Application();
+                    step4Application.setApplicationId(application.getId());
+                    step4Application.setDocumentNumber(documentNumber);
+                    step4Application.setPolicNumber(policNumber);
+                    step4Application.setPolicSum(policSum);
+                    step4Application.setPolicDate(policDate);
+                    step4Application.setDocumentDate(documentDate);
+                    step4Application.setPolicDeadline(policDeadline);
+                    step4Application.setCustomsDepozit(customsDepozit);
+                    step4Application.setDocumentFile(documentFile);
+                    step4Application.setDocumentType(documentType);
+                    step4Application.setPolicOrgName(policOrgName);
+                    step4AppRepository.save(step4Application);
+                }
+
+                if (registerId != null && !registerId.isEmpty()) {
+                    getRegister(new RegisterRequest(registerId));
+                }
             }
         }
 
         return new ApiResponse("OK", true, "application has been saved");
     }
 
-
     public ApiResponse getRegister(RegisterRequest registerRequest) throws IOException {
-        Register register = new Register();
-        register.setRegisterId(registerRequest.getRegister_id());
-        register.setGetData(0);
-        register.setInstime(new Timestamp(System.currentTimeMillis()));
-        registerRepository.save(register);
+        Optional<Register> optionalRegister = registerRepository.findByRegisterId(registerRequest.getRegister_id());
+        if (optionalRegister.isEmpty()) {
+            Register register = new Register();
+            register.setRegisterId(registerRequest.getRegister_id());
+            register.setGetData(0);
+            register.setInstime(new Timestamp(System.currentTimeMillis()));
+            registerRepository.save(register);
 
-        String token = getToken();
-        String url = "https://" + mspdIp + "/v1/register/customs/" + registerRequest.getRegister_id();
+            String token = getToken();
+            String url = "https://" + mspdIp + "/v1/register/customs/" + registerRequest.getRegister_id();
 
-        OkHttpClient client = getUnsafeOkHttpClient(); // Sertifikat tekshirishni o‘chirilgan client
+            OkHttpClient client = getUnsafeOkHttpClient(); // Sertifikat tekshirishni o‘chirilgan client
 
-        Request request = new Request.Builder()
-                .url(url)
-                .get()
-                .addHeader("Authorization", "Bearer " + token)
-                .addHeader("Content-Type", "application/json")
-                .build();
+            Request request = new Request.Builder()
+                    .url(url)
+                    .get()
+                    .addHeader("Authorization", "Bearer " + token)
+                    .addHeader("Content-Type", "application/json")
+                    .build();
 
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new IOException("Error: " + response.code() + " - " + response.body().string());
-            }
-
-            String responseBody = response.body().string();
-            JsonNode rootNode = new ObjectMapper().readTree(responseBody);
-
-            if (rootNode.has("register")) {
-                JsonNode registerNode = rootNode.path("register");
-                register.setActive(registerNode.path("active").asBoolean());
-                register.setName(registerNode.path("name").asText());
-                register.setTin(registerNode.path("tin").asText());
-                register.setPin(registerNode.path("pin").asText());
-                register.setRegisterNumber(registerNode.path("registration_number").asText());
-                register.setRegisterNumber(registerNode.path("register_number").asText());
-                register.setSerial(registerNode.path("serial").asText());
-                register.setNumber(registerNode.path("number").asText());
-
-                SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
-                try {
-                    Date registrationDate = sdf.parse(registerNode.path("registration_date").asText());
-                    register.setRegistrationDate(registrationDate);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
+            try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    throw new IOException("Error: " + response.code() + " - " + response.body().string());
                 }
 
-                try {
-                    Date expiryDate = sdf.parse(registerNode.path("expiry_date").asText());
-                    register.setExpiryDate(expiryDate);
-                } catch (Exception e) {
-                    System.out.println();
+                String responseBody = response.body().string();
+                JsonNode rootNode = new ObjectMapper().readTree(responseBody);
+
+                if (rootNode.has("register")) {
+                    JsonNode registerNode = rootNode.path("register");
+                    register.setActive(registerNode.path("active").asBoolean());
+                    register.setName(registerNode.path("name").asText());
+                    register.setTin(registerNode.path("tin").asText());
+                    register.setPin(registerNode.path("pin").asText());
+                    register.setRegisterNumber(registerNode.path("registration_number").asText());
+                    register.setRegisterNumber(registerNode.path("register_number").asText());
+                    register.setSerial(registerNode.path("serial").asText());
+                    register.setNumber(registerNode.path("number").asText());
+
+                    SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+                    try {
+                        Date registrationDate = sdf.parse(registerNode.path("registration_date").asText());
+                        register.setRegistrationDate(registrationDate);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    try {
+                        Date expiryDate = sdf.parse(registerNode.path("expiry_date").asText());
+                        register.setExpiryDate(expiryDate);
+                    } catch (Exception e) {
+                        System.out.println();
+                    }
+
+                    register.setRegionId(registerNode.path("region_id").asText());
+                    register.setSubRegionId(registerNode.path("sub_region_id").asText());
+                    register.setAddress(registerNode.path("address").asText());
+                    register.setCertificateUuid(registerNode.path("certificate_uuid").asText());
+                    register.setGetDataTime(new Timestamp(System.currentTimeMillis()));
+                    register.setGetData(1);
+                    register.setStatus(registerNode.path("status").path("status").asText());
+                    register.setType(registerNode.path("type").path("oz").asText());
+                    register.setDocumentId(registerNode.path("document").path("id").asText());
+                    register.setDocumentName(registerNode.path("document").path("name_oz").asText());
+                    register.setCategory(registerNode.path("category").path("oz").asText());
+
+                    registerRepository.save(register);
+
+                    String sql = """
+                                UPDATE INSURANCE.POLIS p
+                                SET p.PL_STATUS = 1,
+                                    p.UPDTIME = CURRENT TIMESTAMP
+                                WHERE p.ID IN (
+                                    SELECT p2.id
+                                    FROM INSURANCE.AGREEMNT a
+                                    LEFT JOIN INSURANCE.POLIS p2 ON a.id = p2.id
+                                    WHERE a.CL_INN = ?
+                                      AND p2.PL_INTENT_TYPE in ('5','6')
+                                )
+                            """;
+
+                    jdbcTemplateSecond.update(sql, register.getTin());
                 }
-
-                register.setRegionId(registerNode.path("region_id").asText());
-                register.setSubRegionId(registerNode.path("sub_region_id").asText());
-                register.setAddress(registerNode.path("address").asText());
-                register.setCertificateUuid(registerNode.path("certificate_uuid").asText());
-                register.setGetDataTime(new Timestamp(System.currentTimeMillis()));
-                register.setGetData(1);
-                register.setStatus(registerNode.path("status").path("status").asText());
-                register.setType(registerNode.path("type").path("oz").asText());
-                register.setDocumentId(registerNode.path("document").path("id").asText());
-                register.setDocumentName(registerNode.path("document").path("name_oz").asText());
-                register.setCategory(registerNode.path("category").path("oz").asText());
-
-                registerRepository.save(register);
-
-                String sql = """
-                            UPDATE INSURANCE.POLIS p
-                            SET p.PL_STATUS = 1,
-                                p.UPDTIME = CURRENT TIMESTAMP
-                            WHERE p.ID IN (
-                                SELECT p2.id
-                                FROM INSURANCE.AGREEMNT a
-                                LEFT JOIN INSURANCE.POLIS p2 ON a.id = p2.id
-                                WHERE a.CL_INN = ?
-                                  AND p2.PL_INTENT_TYPE in ('5','6')
-                            )
-                        """;
-
-                jdbcTemplateSecond.update(sql, register.getTin());
             }
         }
+
         return new ApiResponse("OK", true, "register has been saved");
     }
-
 
     public void saveInsurancePolicyLog(InsurancePolicy insurancePolicy) {
         insurancePolicyRepository.save(insurancePolicy);
@@ -429,6 +447,4 @@ public class InsurancePolicyService {
             return jsonObject.has("access_token") ? jsonObject.get("access_token").getAsString() : null;
         }
     }
-
-
 }
